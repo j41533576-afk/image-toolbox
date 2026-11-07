@@ -54,11 +54,16 @@ def collect_info(path_str: str) -> dict[str, str]:
     }
 
 
+def _display_width(text: str) -> int:
+    """中文占 2 列宽，英文占 1 列，用于终端对齐。"""
+    return sum(2 if ord(ch) > 0x2E80 else 1 for ch in text)
+
+
 def show_info(path_str: str) -> None:
     """把图片信息以对齐的表格打印到终端。"""
     info = collect_info(path_str)
     print("图片基础信息")
     print("-" * 42)
-    width = max(len(key) for key in info)
+    width = max(_display_width(key) for key in info)
     for key, value in info.items():
-        print(f"{key:<{width}}  {value}")
+        print(f"{key}{' ' * (width - _display_width(key) + 2)}{value}")

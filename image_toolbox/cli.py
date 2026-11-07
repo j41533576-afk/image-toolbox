@@ -1,6 +1,7 @@
 """命令行参数解析与分发。
 
-所有命令的错误统一收敛为 ImageToolError，打印友好提示并返回退出码 1。
+所有可预期的错误统一收敛为 ImageToolError / OSError，
+打印友好提示并返回退出码 1，不把 Python 堆栈暴露给使用者。
 """
 from __future__ import annotations
 
@@ -10,7 +11,17 @@ from pathlib import Path
 
 import numpy as np
 
-from .edits import crop_image, parse_box, resize_image
+from .edits import (
+    FLIP_DIRECTIONS,
+    TARGET_FORMATS,
+    crop_image,
+    flip_image,
+    grayscale_image,
+    parse_box,
+    resize_image,
+    rotate_image,
+    target_extension,
+)
 from .info import show_info
 from .utils import ImageToolError, load_image, resolve_output, save_image
 
@@ -48,6 +59,28 @@ def build_parser() -> argparse.ArgumentParser:
     p_crop.add_argument("-b", "--box", required=True, help="裁剪区域，例如 10,20,300,240")
     _add_output(p_crop)
 
+    p_rotate = sub.add_parser("rotate", help="旋转图片（90 / 180 / 270 度）")
+    p_rotate.add_argument("image", help="图片文件路径")
+    p_rotate.add_argument("-a", "--angle", type=int, required=True,
+                          help="旋转角度：90 / 180 / 270")
+    _add_output(p_rotate)
+
+    p_flip = sub.add_parser("flip", help="水平或垂直翻转图片")
+    p_flip.add_argument("image", help="图片文件路径")
+    p_flip.add_argument("-d", "--direction", choices=list(FLIP_DIRECTIONS),
+                        default="horizontal", help="翻转方向，默认 horizontal")
+    _add_output(p_flip)
+
+    p_gray = sub.add_parser("grayscale", help="彩色图转灰度图")
+    p_gray.add_argument("image", help="图片文件路径")
+    _add_output(p_gray)
+
+    p_convert = sub.add_parser("convert", help="格式转换，例如 PNG 与 JPG 互转")
+    p_convert.add_argument("image", help="图片文件路径")
+    p_convert.add_argument("-t", "--to", choices=sorted(TARGET_FORMATS), required=True,
+                           help="目标格式：png / jpg / jpeg / bmp / webp")
+    _add_output(p_convert)
+
     return parser
 
 
@@ -66,8 +99,23 @@ def main(argv: list[str] | None = None) -> int:
             left, top, right, bottom = parse_box(args.box)
             result = crop_image(image, left, top, right, bottom)
             _save_result(result, source, args, "cropped")
-    except ImageToolError as exc:
+        elif args.command == "rotate":
+            result = rotate_image(image, args.angle)
+            _save_result(result, source, args, f"rotated{args.angle}")
+        elif args.command == "flip":
+            result = flip_image(image, args.direction)
+            _save_result(result, source, args, f"flipped_{args.direction}")
+        elif args.command == "grayscale":
+            result = grayscale_image(image)
+            _save_result(result, source, args, "grayscale")
+        elif args.command == "convert":
+            ext = target_extension(args.to)
+            _save_result(image, source, args, "converted", ext)
+    except (ImageToolError, OSError, ValueError) as exc:
         print(f"[错误] {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:  # 兜底：任何未预期异常也不让程序直接崩溃
+        print(f"[错误] 发生未预期的错误：{exc}", file=sys.stderr)
         return 1
     return 0
 

@@ -63,3 +63,66 @@ def crop_image(image: np.ndarray, left: int, top: int,
     print(f"裁剪完成：区域 ({left}, {top}, {right}, {bottom})，"
           f"结果 {result.shape[1]} x {result.shape[0]} 像素")
     return result
+
+
+ROTATION_ANGLES = (90, 180, 270)
+FLIP_DIRECTIONS = ("horizontal", "vertical", "both")
+TARGET_FORMATS = {
+    "png": ".png",
+    "jpg": ".jpg",
+    "jpeg": ".jpg",
+    "bmp": ".bmp",
+    "webp": ".webp",
+}
+
+
+def rotate_image(image: np.ndarray, angle: int) -> np.ndarray:
+    """旋转图片，至少支持 90 / 180 / 270 度（90 与 270 会交换宽高）。"""
+    if angle not in ROTATION_ANGLES:
+        raise ImageToolError(f"暂不支持 {angle} 度旋转；仅支持 90、180、270 度")
+    codes = {
+        90: cv2.ROTATE_90_CLOCKWISE,
+        180: cv2.ROTATE_180,
+        270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+    }
+    result = cv2.rotate(image, codes[angle])
+    print(f"旋转完成：{angle} 度，结果 {result.shape[1]} x {result.shape[0]} 像素")
+    return result
+
+
+def flip_image(image: np.ndarray, direction: str) -> np.ndarray:
+    """水平翻转 / 垂直翻转 / 两者同时。"""
+    codes = {"horizontal": 1, "vertical": 0, "both": -1}
+    if direction not in codes:
+        raise ImageToolError(f"不支持的翻转方向：{direction}（可用 {', '.join(FLIP_DIRECTIONS)}）")
+    result = cv2.flip(image, codes[direction])
+    print(f"翻转完成：{direction}")
+    return result
+
+
+def grayscale_image(image: np.ndarray) -> np.ndarray:
+    """彩色图转灰度图；已经是灰度图时原样输出并给出提示。"""
+    if image.ndim == 2:
+        print("该图片本身已是灰度图，直接输出结果")
+        return image.copy()
+    channels = image.shape[2]
+    if channels == 3:
+        result = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    elif channels == 4:
+        result = cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY)
+    elif channels == 2:  # 灰度 + Alpha：丢弃透明通道，保留灰度
+        result = cv2.split(image)[0].copy()
+    else:
+        raise ImageToolError(f"无法把 {channels} 通道图像转换成灰度图")
+    print(f"灰度化完成：结果 {result.shape[1]} x {result.shape[0]} 像素（单通道）")
+    return result
+
+
+def target_extension(target: str) -> str:
+    """把目标格式名映射成文件扩展名。"""
+    key = target.lower().lstrip(".")
+    if key not in TARGET_FORMATS:
+        raise ImageToolError(
+            f"不支持的目标格式：{target}（可用 {', '.join(sorted(TARGET_FORMATS))}）"
+        )
+    return TARGET_FORMATS[key]
