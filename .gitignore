@@ -1,0 +1,33 @@
+# 虚拟环境（不提交）
+.venv/
+venv/
+env/
+ENV/
+
+# Python 缓存与构建产物（不提交）
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# 体积过大的图片与程序输出（不提交）
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.webp
+*.gif
+*.tif
+*.tiff
+output/
+samples/
+
+# 编辑器 / 系统文件
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
